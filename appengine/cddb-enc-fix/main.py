@@ -149,12 +149,11 @@ class ParseUploadedHandler(webapp2.RequestHandler):
 			
 			ndb.put_multi(records)
 			if (line == ''):
-				self.response.out.write('<html><body>All done.</body></html>')
+				self.response.out.write('<html><body>All done. <a href="/countAdded">Continue to reset the application counters</a></body></html>')
 			else:
 				url = '/parse?id=' + self.request.get('id') + '&start=' + str(lines) + '&length=' + str(fetch_length)
 				self.response.out.write('<html><body><a href="' + url + '">continue from ' +  str(lines) + '</a><script>window.location = "' + url + '";</script></body></html>')
-
-				
+			
 class CountUploadedHandler(webapp2.RequestHandler):
 	def get(self):
 		if not (users.is_current_user_admin()):
