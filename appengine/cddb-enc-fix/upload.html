@@ -1,0 +1,92 @@
+<html>
+<body>
+{% if admin is defined  %}
+	{% if admin %}
+		Hello, {{ nickname }}. <a href="{{logout_url}}">logout</a><br>
+		<script type="text/javascript">
+		function fileSelected(evt) {
+			var element = evt.target;
+			var file = element.files[0];
+			if (file) {
+				setUploadButtonsAccessible(false);
+				uploadFile(element);
+				element.value = "";
+			}
+		}
+		var upload_url = "{{upload_url}}";
+		function uploadFile(element) {
+			var fd = new FormData();
+			fd.append("file", element.files[0]);
+			var newDiv = document.createElement("div");
+			newDiv.innerHtml = "Uploading...<br>";
+			element.parentNode.replaceChild(newDiv, element);
+			var xhr = new XMLHttpRequest();
+			xhr.item_name = element.name;
+			xhr.upload.progressDiv = newDiv;
+			xhr.upload.addEventListener("progress", uploadProgress, false);
+			xhr.addEventListener("load", uploadComplete, false);
+			xhr.addEventListener("error", uploadFailed, false);
+			xhr.addEventListener("abort", uploadCanceled, false);
+			xhr.open("POST", upload_url);
+			xhr.send(fd);
+		}
+		function uploadProgress(evt) {
+			if (evt.lengthComputable) {
+				var percentComplete = Math.round(evt.loaded * 100 / evt.total);
+				this.progressDiv.innerHTML = "Uploading, " + percentComplete.toString() + '%<br>';
+			}
+			else {
+				this.progressDiv.innerHTML = 'unable to compute progress.<br>';
+			}
+		}
+
+		function uploadComplete(evt) {
+			/* This event is raised when the server send back a response */
+			var response = eval('(' + evt.target.responseText +')');
+			size = response.size;
+			if (response.size > 2000000) 
+			{
+				size = Math.round(response.size / 1024 / 1024) + " mb";
+			}
+			else if (response.size > 2000)
+			{
+				size = Math.round(response.size / 1024) + " kb";
+			}
+			else
+			{
+				size = response.size + " bytes";
+			}
+			
+			this.upload.progressDiv.innerHTML = response.filename + ' (' + size + ', ' + response.content_type + ')<br>' +
+				'<a href="/parse?id=' + response.key + '">parse</a>';
+			upload_url = response.new_upload_url;
+		}
+
+		function setUploadButtonsAccessible(mode)
+		{
+			document.getElementById("fileToUpload").disabled = !mode;
+		}
+
+		function uploadFailed(evt) {
+			alert("There was an error attempting to upload the file.");
+		}
+
+		function uploadCanceled(evt) {
+			alert("The upload has been canceled by the user or the browser dropped the connection.");
+		}
+
+
+		</script>
+		<h1>Upload a file</h1>
+		<p>
+		<div  valign="top"><form enctype="multipart/form-data"><input type="file" name="json_file" id="fileToUpload" onchange="fileSelected(event);"/></form>
+		</p>
+		</form>
+	{% else %}
+		You need to be admin. <a href="{{logout_url}}">logout</a>
+	{% endif %}
+{% else %}
+	<a href="{{login_url}}">login</a>
+{% endif %}
+</body>
+</html>

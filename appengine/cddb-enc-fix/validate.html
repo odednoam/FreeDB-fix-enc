@@ -1,0 +1,509 @@
+<html>
+<head>
+<style>
+
+body{
+  font-family:Helvetica,Arial,sans-serif;
+  overflow: hidden;
+}
+
+input.button
+{
+    cursor:pointer;
+	background-size: 60px 57px;
+	-moz-background-size: 60px 57px;
+	-webkit-background-size: 60px 57px;
+    width: 60px;
+    height: 57px;
+    border: none;
+	padding: 0px;
+	color: transparent;
+	font-size: 1px;
+	opacity: 0.9;
+	z-index: 1;
+}
+
+input[type="submit"]:hover
+{
+	opacity: 1;
+}
+
+#savestatus
+{
+	position: absolute ;
+	right: 10px;
+	top: 10px;
+	border: 1px solid grey;
+	padding: 5px;
+}
+
+#hints
+{
+	position: fixed ;
+	top: 50px;
+	right: 10px;
+	background-color: #d7d7d7;
+	border: 1px solid grey;
+	padding: 5px;
+	font-size: 10pt;
+	opacity: 0.8;
+}
+
+#yesbutton
+{
+    background-image:url(/images/yes.png);
+	background-color: transparent;
+}
+#yesbutton[disabled]
+{
+    background-image:url(/images/yes_disabled.png);
+	background-color: transparent;
+}
+
+#nobutton
+{
+    background-image:url(/images/no.png);
+	background-color: transparent;
+}
+#nobutton[disabled]
+{
+    background-image:url(/images/no_disabled.png);
+	background-color: transparent;
+}
+#nextbutton
+{
+    background-image:url(/images/next.png);
+	background-color: transparent;
+	background-size: 22px 40px;
+	-moz-background-size: 22px 40px;
+	-webkit-background-size: 22px 40px;
+    width: 22px;
+    height: 40px
+}
+#prevbutton
+{
+    background-image:url(/images/prev.png);
+	background-color: transparent;
+	background-size: 22px 40px;
+	-moz-background-size: 22px 40px;
+	-webkit-background-size: 22px 40px;
+    width: 22px;
+    height: 40px
+}
+
+#tested
+{
+	width: 85%;
+	height: 85%;
+	border: 1px solid gray;
+}
+
+#candidates
+{
+	width: 100%;
+	height: 400px;
+	position: relative;
+	perspective: 800px;
+	perspective-origin: 50% 100px;
+}
+
+div.candidate
+{
+	direction: {{dir}};
+	position: absolute;
+	left: 500px;
+	border: 1px solid black;
+	width: 350px;
+	height: 450px;
+	background-color: white;
+	transition: all 1s;
+	-moz-transition: all 1s;
+	-webkit-transition: all 1s;
+	-o-transition: all 1s;
+	padding: 8px;
+}
+
+div.active
+{
+	border: 2px solid black;
+	box-shadow: 0 0 5px 5px #ffffc0; 
+}
+
+div.voted_true
+{
+    background:#f0fff0 url(/images/yes.png) no-repeat ;
+	background-size: 30%;
+	background-position: center center;
+}
+
+div.voted_false
+{
+    background:#fff0f0 url(/images/no.png) no-repeat ;
+	background-size: 30%;
+	background-position: center center;
+}
+
+div.voted_null
+{
+    background:#f0f0f0 url(/images/maybe.png) no-repeat ;
+	background-size: 30%;
+	background-position: center center;
+}
+
+pre 
+{
+	word-wrap: break-word; 
+}
+
+</style>
+<script>
+var ie = false;
+</script>
+<!--[if ie]>
+    <script type="text/javascript">
+        ie = true;
+    </script>
+	<style>
+	#yesbutton
+	{
+		background:url(/images/yes_small.png) no-repeat;
+	}
+	#yesbutton[disabled]
+	{
+		background:url(/images/yes_small_disabled.png) no-repeat;
+	}
+
+	#nobutton
+	{
+		background:url(/images/no_small.png) no-repeat;
+	}
+	#nobutton[disabled]
+	{
+		background:url(/images/no_small_disabled.png) no-repeat;
+	}
+	#nextbutton
+	{
+		background:url(/images/next_small.png) no-repeat;
+
+	}
+	#prevbutton
+	{
+		background:url(/images/prev_small.png) no-repeat;
+
+	}
+	</style>
+<![endif]-->
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-32590175-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</head>
+<body onKeyUp="keyboardEvent(event);">
+<script>
+var inQueue = [];
+var outQueue = [];
+var cursor = undefined;
+var hasMore = false;
+var fetchActive = false;
+var tested = undefined;
+var leftOffset = 500;
+var objectHeight = 450;
+var objectWidth = 350;
+var buttonsEnabled = true;
+var saving = false;
+var savingString = "";
+
+function keyboardEvent(e)
+{
+	if (buttonsEnabled)
+	{
+		switch (e.keyCode)
+		{
+		case 37:
+			prev();
+			break;
+		case 39:
+			validate(null);
+			break;
+		case 38:
+			validate(true);
+			break;
+		case 40:
+			validate(false);
+			break;
+		}
+	}
+}
+
+
+function endAnimation()
+{
+	if (tested != undefined)
+	{
+		buttonsDisable(false);
+	}
+}
+
+function fetch()
+{
+	if  (fetchActive) return;
+	fetchActive = true;
+	var xhr = new XMLHttpRequest();
+	var query = '/query?lang={{lang}}' + ((cursor==undefined)?'':('&cursor=' + cursor));
+	xhr.open('GET', query, true);
+	xhr.send();
+	xhr.onreadystatechange = function() {
+		if (this.readyState == 4  && this.status == 200 ) {
+			fetchActive = false;
+			var response = eval('(' + this.responseText + ')');
+			var candidatesDiv = document.getElementById('candidates');
+			for (i in response.resultSet) {
+				var appended = response.resultSet[i];
+				var e = document.createElement('div');
+				e.className = "candidate";
+				var pre = document.createElement('pre');
+				pre.innerHTML = response.resultSet[i].testString;
+				e.appendChild(pre);
+				appended.element = e;
+				inQueue.push(appended);
+				candidatesDiv.appendChild(e);
+			}
+			cursor = response.cursor;
+			hasMore = response.more;
+			if (tested == undefined)
+			{
+				next();
+			}
+			updateDisplay();
+		}
+		
+	}
+
+}
+
+function setTransform(e, scale, offset, rotate, opacity, zindex)
+{
+	e.style.zIndex = zindex;
+	if (ie)
+	{
+		e.style.filter = "progid:DXImageTransform.Microsoft.Matrix(M11=" + scale + ", M22=" + scale + ") alpha(opacity=" + (opacity*100) + ")";
+		e.style.left = leftOffset + offset;
+		e.style.top = (1-scale)/2*objectHeight;
+	}
+	else
+	{
+		e.style.opacity = scale;
+		var transform = "scale(" + scale.toFixed(3) + "," + scale.toFixed(3) + ") translateX(" + offset.toFixed(0) + "px)  rotateY(" + rotate.toFixed(0) + "deg)";
+		e.style.transform = transform;
+		e.style.webkitTransform = transform;
+		e.style.MozTransform = transform;
+	}
+}
+
+function updateDisplay()
+{
+	buttonsDisable(true);
+	for (var i in inQueue)
+	{
+		var index = parseInt(i)+1;
+		var scale = Math.pow(0.95, index); 
+		var opacity = Math.pow(0.8, index);
+		var offset = -200 * Math.pow(1.5, index);
+		var rotate = ((1-scale) * 90);
+		setTransform(inQueue[i].element, scale, offset, rotate, opacity, -index);
+		
+	}
+	for (var i in outQueue)
+	{
+		var index = parseInt(i)+1;
+		var scale = Math.pow(0.95, index); 
+		var offset = 200 * Math.pow(1.5, index);
+		var opacity = Math.pow(0.5, index);
+		var rotate = -((1-scale) * 90);
+		setTransform(outQueue[i].element, scale, offset, rotate, opacity, -index);
+		
+	}
+	if (tested != undefined)
+	{
+		setTransform(tested.element, 1, 0, 0, 1, 0);
+		tested.selectedValue = undefined;
+	}
+	
+	window.setTimeout(endAnimation, 1000);
+	updateSaveStatus();
+	
+	if (tested == undefined && inQueue.length == 0 && outQueue.length == 0 && savingString == '')
+	{
+		document.getElementById('candidates').innerHTML = "<center><h2>All done!</h2>Thank you for your help.</center>";
+	}
+}
+
+function buttonsDisable(mode)
+{
+	document.getElementById('yesbutton').disabled = mode;
+	document.getElementById('nobutton').disabled = mode;
+	document.getElementById('nextbutton').disabled = mode;
+	document.getElementById('prevbutton').disabled = mode;
+	buttonsEnabled = !mode;
+}
+
+function save(list)
+{
+	if (saving) return;
+	saving = true;
+	var candidatesDiv = document.getElementById('candidates');
+	var p;
+	while ((p = list.pop())!= undefined)
+	{
+		candidatesDiv.removeChild(p.element);
+		if (p.selectedValue != undefined && p.selectedValue != null)
+		{
+			savingString += p.language + ":" + p.key + ":" + p.selectedValue + ",";
+		}
+	}
+	doSave();
+}
+
+function doSave()
+{
+	var xhr = new XMLHttpRequest();
+	var query = '/save?' + savingString;
+	xhr.open('GET', query, true);
+	xhr.send();
+	xhr.onreadystatechange = function() {
+		if (this.readyState == 4) {
+			if (this.status == 200 ) {
+				savingString = "";
+				updateSaveStatus();
+			}
+			else
+			{
+				document.getElementById('savestatus').innerHTML = "Error saving data. <a href='javascript:doSave();'>retry</a> <a href='javascript:saveAll();'>save all</a>";
+			}
+			saving = false;
+		}
+	}
+}
+
+function updateSaveStatus()
+{
+	var numUnsaved = outQueue.length;
+	if (savingString != "")
+	{
+		numUnsaved += savingString.split(',').length;
+	}
+	if (numUnsaved == 0)
+	{
+		document.getElementById('savestatus').innerHTML = "No unsaved data.";
+	}
+	else
+	{
+		document.getElementById('savestatus').innerHTML = numUnsaved + " records not saved. <a href='javascript:saveAll();'>save</a>";
+	}
+}
+
+function next()
+{
+	if (tested != undefined)
+	{
+		tested.element.className = tested.element.className.replace(" active", "");
+		tested.element.className += " voted_" + tested.selectedValue;
+		outQueue.unshift(tested);
+		if (outQueue.length >= 10)
+		{
+			var sendQueue = [];
+			while (outQueue.length > 5)
+			{
+				sendQueue.push( outQueue.pop());
+			}
+			save(sendQueue);
+		}
+	}
+	tested = inQueue.shift();
+	if (tested != undefined)
+	{
+		tested.element.className = tested.element.className.replace(/ voted_\w*/, "");
+		tested.element.className += " active";
+	}
+}
+
+function prev()
+{
+	if (! buttonsEnabled) return;
+	if (tested != undefined && outQueue.length > 0)
+	{
+		tested.element.className = tested.element.className.replace(" active", "");
+		inQueue.unshift(tested);
+		tested = outQueue.shift();
+		tested.element.className = tested.element.className.replace(/ voted_\w*/, "");
+		tested.selectedValue = undefined;
+		updateDisplay();
+	}
+}
+
+function validate(result)
+{
+	if (! buttonsEnabled) return;
+	tested.selectedValue = result;
+	next();
+	updateDisplay();
+	if (inQueue.length < 5 && hasMore)
+	{
+		fetch();
+	}
+}
+fetch();
+
+function adjustSizes()
+{
+	leftOffset = (document.body.offsetWidth - objectWidth) / 2;
+	for (i in document.styleSheets)
+	{
+		for (j in document.styleSheets[i].cssRules)
+		{
+			if (document.styleSheets[i].cssRules[j].selectorText == 'div.candidate')
+			{
+				document.styleSheets[i].cssRules[j].style["left"] = leftOffset + "px";
+			}
+		}
+	}
+
+}
+
+function saveAll()
+{
+	save(outQueue);
+}
+</script>
+<h1><a href="/">Main</a> &gt; FreeDB Charset Fix App</h1>
+{% if nickname is defined %}
+	<h3>Is the following disc contents readable in {{language}}?</h3>
+	<div id="savestatus">No unsaved data.</div>
+	<div id="hints">Keyboard shortcuts: Up = "Yes", Down = "No", Left = "Previous", Right = "Next"</div>
+	<center>
+	<input id='prevbutton' class="button" type="submit" value="Previous" onClick="prev();" disabled>
+	<input id='yesbutton' class="button" type="submit" value="Yes" onClick="validate(true);" disabled>
+	<input id='nobutton' class="button" type="submit" value="No" onClick="validate(false);" disabled>
+	<input id='nextbutton' class="button" type="submit" value="Next" onClick="validate(null);" disabled>
+	</center>
+	<div id="candidates">
+	</div>
+{% else %}
+	<h3>To continue, please <a href="{{login_url}}">login</a> with Google.</h3>
+{% endif %}
+<script type="text/javascript">
+adjustSizes();
+window.onresize = adjustSizes;
+</script>
+</body>
+</html>

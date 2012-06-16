@@ -1,0 +1,68 @@
+<html>
+<head>
+<style>
+body{
+  font-family:Helvetica,Arial,sans-serif;
+}
+</style>
+{% if admin %}
+<script>
+function extract(lang)
+{
+	if (confirm('Are you sure you want to extract data for ' + lang + '?'))
+		window.location='/extract?lang='+lang;
+}
+</script>
+{% endif %}
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-32590175-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</head>
+<body>
+{% if nickname is defined %}
+	<p align="right"><a href="{{logout_url}}">logout</a>
+{% endif %}
+<h1>FreeDB Charset Fix App</h1>
+<p>The FreeDB audio CD track database contains many CDs, in many languages, that were inserted before Unicode support was introduced to the database format. As a result, many of the track and disc names in non-latin languages in it cannot be displayed correctly.
+</p>
+<p>To fix this problem, we used a language detection algorithm to figure out what language these track names should be displayed in. However, this algorithm is not as accurate as a human being who speaks the language. If you speak one of the languages that need fixing in the database, please take the time to verify that the automatic detection algorithm gave us the correct result.
+</p>
+{% if nickname is defined %}
+	<h3>Want to help? Please click on a language you read:</h3>
+	<table>
+	<tbody>
+		<tr>
+			<td>Language(s)</td>
+			<td></td>
+			<td>1st<br>pass</td>
+			<td>2nd<br>pass</td>
+			<td>3rd<br>pass</td>
+		</tr>
+		{% for language in languages %}
+		<tr>
+			<td><a href="/validate?lang={{ language }}">{{ languages.get(language).name }}</a></td>
+			<td>&nbsp;{{ languages.get(language).total }} entries,</td>
+			<td align="right">&nbsp;{{ languages.get(language).first }}%</td>
+			<td align="right">&nbsp;{{ languages.get(language).second }}%</td>
+			<td align="right">&nbsp;{{ languages.get(language).third }}%</td>
+			{% if admin %}
+			<td>&nbsp;<a href="javascript:extract('{{ language }}');">Extract data</a></td>
+			{% endif %}
+		</tr>
+		{% endfor %}
+	</tbody></table>
+{% else %}
+	<h3>To continue, please <a href="{{login_url}}">login</a> with Google.</h3>
+{% endif %}
+</body>
+</html>
